@@ -1,8 +1,8 @@
-# NEAT in JAX
+# NEAT in JAX (a personal side project)
 
 An implementation of **NEAT** (NeuroEvolution of Augmenting Topologies) written in JAX, applied to two problems:
 
-1. **Neural Slime Volleyball**. Evolve an agent from scratch to play against the built-in AI from [EvoJAX](https://github.com/google/evojax), starting from a network with no hidden nodes at all.
+1. **Neural Slime Volleyball**. Evolve an agent from scratch to play against the built-in AI from [EvoJAX](https://github.com/google/evojax), starting from a minimal fully-connected network with no hidden nodes.
 2. **Backpropagation NEAT**. NEAT evolution proposes network topologies, gradient descent fits their weights, on four 2-dimensional classification tasks from [backprop-neat-js](https://github.com/hardmaru/backprop-neat-js/).
 
 Everything here is written directly on top of `jax` and `numpy`: the genome encoding, the forward pass, mutation, crossover, speciation and the selection loop. There is no NEAT library underneath.
@@ -14,13 +14,14 @@ Everything here is written directly on top of `jax` and `numpy`: the genome enco
 NEAT is a genetic algorithm used to evolve both the weights and the topology of neural networks. It was developed by Kenneth Stanley and Risto Miikkulainen in 2002.
 
 A NEAT agent comprises a population of individuals (or genomes); each individual is a feed-forward neural network, consisting of nodes and weighted connections between nodes. One generation in NEAT looks as follows:
-1. Express and evaluate all the individuals in a NEAT agent based on the inputs (a collection of real numbers); then record the outputs (another collection of real numbers), which determine a fitness score based on a fitness function adapted to the task at hand.
-2. Speciate. Group individuals by compatibility distance based on the similarity of their genomes, which protects diversity and innovation.
-3. Select and reproduce. Within species, fitter individuals produce offspring via crossover
-4. Mutate, in two different ways:
+
+1. **Express and evaluate** all the individuals in a NEAT agent based on the inputs (a collection of real numbers); then record the outputs (another collection of real numbers), which determine a fitness score based on a fitness function adapted to the task at hand.
+2. **Speciate**. Group individuals by compatibility distance based on the similarity of their genomes, which protects diversity and innovation.
+3. **Select and reproduce**. Within species, fitter individuals produce offspring via crossover
+4. **Mutate**, in two different ways:
     1) Perturb weights with some moderate randomness.
     2) Occasionally add a node or connection, stamping new innovation numbers.
-5. Repeat, with networks gradually complexifying (ideally, only where added structure improves fitness).
+5. **Repeat**, with networks gradually complexifying (ideally, only where added structure improves fitness).
 
 One of the innovations of NEAT is the use of innovation numbers, which are unique historical markers associated to connection genes which track when said connection first appears, enabling correct crossover (when two genomes mate, their genes must be properly aligned) and accurate speciation (to protect innovation).
 
@@ -28,76 +29,57 @@ In some sense, NEAT starts with the simplest possible networks and lets a geneti
 
 ---
 
-## Why JAX
+## Why JAX?
 
 The awkward part of NEAT is that every genome has a different network. That normally forces you to evaluate the population one genome at a time, which is where most of the runtime goes.
 
 The use of JAX, with its immutable data structures allowing jitted functions, enables faster evaluation of the NEAT algorithmic loop. Nonetheless, using JAX has some drastic consequences, since many of the data structures are not allowed to be modified.
 
+The trick used throughout this repository is to give every genome the same fixed-size arrays and let unused capacity sit in inactive slots. A genome with three hidden nodes and a genome with thirty have identical shapes, so a whole population stacks into one pytree and evaluates under a single `jax.vmap`. The whole population of individuals then get evaluated simultaneously inside one compiled `lax.scan`.
+
 Therefore, I decided to split my NEAT algorithm into two connected parts:
 
-1. The JAX side: evaluating the population’s fitness (aka the forward pass), using vmap/jit, which is the step requiring the most computing power. All functions present in the forward pass need to be JIT compatible, so that I can add a simple @jit decorator at the end.
-2. The NumPy side: everything else (speciation, crossover, mutations, restacking the population with new individuals, innovation bookkeeping, etc.). These steps do not vectorize easily so they are not so suitable for JAX (it would take quite a bit more work to rewrite them using JAX).
+1. **The JAX side**: evaluating the population’s fitness (aka the forward pass), using vmap/jit, which is the step requiring the most computing power. All functions present in the forward pass need to be JIT compatible, so that I can add a simple @jit decorator at the end.
+2. **The NumPy side**: everything else (speciation, crossover, mutations, restacking the population with new individuals, innovation bookkeeping, etc.). These steps do not vectorize easily so they are not so suitable for JAX (it would take quite a bit more work to rewrite them using JAX). These steps run once per offspring per generation.
 
-The trick used throughout this repository is to give every genome the *same fixed-size arrays* and let unused capacity sit in inactive slots. A genome with three hidden nodes and a genome with thirty have identical shapes, so a whole population stacks into one pytree and evaluates under a single `jax.vmap` — one hundred agents playing volleyball simultaneously inside one compiled `lax.scan`.
+Two consequences follow from this choice:
 
-Two consequences follow from that choice:
-
-- **The forward pass is a fixed-length scan.** There is no topological sort.
-  The full activation vector is updated `MAX_NODES` times; since mutation only
-  ever adds edges pointing from a shallower node to a deeper one, the graph is
-  acyclic and has certainly settled by then.
-- **The forward pass is differentiable.** Which is what makes backprop NEAT
-  almost free: `jax.grad` on the same code that plays volleyball.
-
-Mutation and speciation, by contrast, stay in NumPy. They run once per offspring per generation.
+- **The forward pass is a fixed-length scan.** There is no topological sort. The full activation vector is updated `MAX_NODES` times; since mutation only ever adds edges pointing from a shallower node to a deeper one, the graph is acyclic and has certainly settled by then.
+- **The forward pass is differentiable.** Which is what makes backprop NEAT almost free using `jax.grad`.
 
 ---
 
 ## Install
 
-```bash
-git clone https://github.com/<you>/neat-jax.git
-cd neat-jax
-pip install -r requirements.txt
-```
+CPU JAX is fine for both experiments. For a GPU build, follow the [official JAX install instructions](https://docs.jax.dev/en/latest/installation.html) instead of the `jax` line in `requirements.txt`.
 
-CPU JAX is fine for both experiments. For a GPU build, follow the
-[official JAX install instructions](https://docs.jax.dev/en/latest/installation.html)
-instead of the `jax` line in `requirements.txt`.
+`evojax` is only needed for Slime Volleyball. The classification experiment runs without it.
 
-`evojax` is only needed for Slime Volleyball. The classification experiment
-runs without it.
-
-Note that EvoJAX's Slime Volleyball module imports `cv2` for rendering but does
-not list it among its own dependencies, so `opencv-python` is pinned here
-explicitly. Installing `evojax` on its own is not enough.
+Note that EvoJAX's Slime Volleyball module imports `cv2` for rendering but does not list it among its own dependencies, so `opencv-python` is pinned here explicitly. Installing `evojax` on its own is not enough.
 
 ---
 
 ## Quick start
 
 ```bash
-# Backprop NEAT on all four classification tasks (~40 min on one CPU core)
+# Backprop NEAT on all four classification tasks
 python train_classification.py
 
 # A fast look at what it does
 python train_classification.py --gens 10 --datasets xor spiral
 
-# Slime Volleyball (long — see "Runtime" below)
+# Slime Volleyball (long runtime)
 python train_slimevolley.py
 
 # A fast look
-python train_slimevolley.py --gens 20 --pop 20 --episodes 1 \
-    --set N_ELITES=2 --set MAX_STEPS=300 --set GIF_EVERY=10
+python train_slimevolley.py --gens 20 --pop 20 --episodes 1 --set N_ELITES=2 --set MAX_STEPS=300 --set GIF_EVERY=10
 ```
 
-Both scripts write everything to `--out` (default `outputs/<task>/`) and print
-a per-generation log as they go.
+Both scripts write everything to an output folder (default `outputs/<task>/`) and print a per-generation log as they go.
 
 ---
 
-## What you get out
+## Outputs
 
 ### `train_slimevolley.py`
 
@@ -108,13 +90,9 @@ a per-generation log as they go.
 | `topology_gen####.png` | its network, drawn left-to-right by depth |
 | `fitness.png` | best episode reward against generation |
 
-GIFs and checkpoints are written every `GIF_EVERY` generations, topology
-figures every `SNAPSHOT_EVERY`.
+GIFs and checkpoints are written every `GIF_EVERY` generations, topology figures every `SNAPSHOT_EVERY` generations.
 
-At the end the script re-scores **every** checkpoint on the same fresh
-episodes and reports the best. This is worth doing rather than trusting the
-final generation: a champion selected on three noisy episodes can simply have
-had a lucky draw, and the last generation is not reliably the strongest one.
+At the end the script re-scores every checkpoint on the same fresh episodes and reports the best.
 
 ### `train_classification.py`
 
@@ -126,66 +104,27 @@ had a lucky draw, and the last generation is not reliably the strongest one.
 | `fitness_<name>.png` | fitness and mean hidden-node count on twin axes |
 | `best_<name>.npz` | the winning genome |
 
-The twin-axis plot is the one worth looking at. Fitness sits flat on the
-plateau a linear model can reach, and then jumps — and the jump lines up with
-the generation in which the population grows its first hidden node. The script
-also prints which activation functions evolution actually kept, pooled across
-datasets, which is a reasonable proxy for which ones are useful rather than
-merely available.
-
 ---
 
-## Results
-
-### Backprop NEAT
-
-All four datasets at stock hyperparameters (40 generations, population 30,
-100 points, seed 0), starting from a network with no hidden nodes:
-
-| dataset | accuracy | hidden nodes evolved | activations kept |
-| --- | --- | --- | --- |
-| gauss | 100% | 1 | inverse |
-| circle | 95% | 4 | abs ×3, square |
-| xor | 94% | 4 | sin, abs, inverse, cos |
-| spiral | 85% | 3 | inverse, sin, cos |
-
-![Decision boundaries and evolved topologies](docs/classification_summary.png)
-
-Top row: the learned class probability over the plane, with the 0.5 contour in
-black. Bottom row: the network evolution actually produced, hidden nodes
-labelled with their chosen activation.
-
-Two things in that figure are worth more than the accuracy column.
-
-**Complexity tracks difficulty.** `gauss` is linearly separable and evolution
-stopped at one hidden node; the two non-linear tasks grew four. Nothing in the
-fitness function asks for this — the complexity penalty pushes the other way.
-It falls out of the search.
-
-**The activation set is used selectively.** Pooling hidden nodes across all
-four runs: `abs` 33%, `inverse` 25%, `sin` and `cos` 17% each, `square` 8% —
-and `linear`, `tanh`, `sigmoid`, `relu` and `gauss` were never chosen at all.
-Uniform choice would be 9% each. The functions that survive are the ones whose
-shape matches the task geometry: `abs` and `square` fold the plane around an
-axis, which is most of what `circle` and `xor` need.
-
-### Complexification
-
-![Fitness against complexity on spiral](docs/spiral_complexification.png)
-
-This is the plot the whole setup exists to produce. Fitness sits pinned on the
-generation-0 plateau — the best a network with no hidden layer can do — for
-seven generations. It leaves the plateau only once the population has grown its
-first hidden node, and every subsequent jump in fitness is preceded by a rise
-in mean hidden-node count. Architecture search is doing the work; gradient
-descent is only cashing it in.
+## Sample results
 
 ### Slime Volleyball
 
-Verified mechanically rather than to convergence — see **Runtime** below; the
-stock configuration is an overnight job and was not run to completion here.
-Structural growth, GIF rendering, topology figures, checkpointing and the
-re-scoring loop all behave correctly on short runs.
+In the GIF, my NEAT evolved agent is the yellow one on the right; the internal AI from EvoJAX is the blue one on the left.
+
+![GIF of winning individual](docs/topology.png)
+
+![Topology of winning genome](docs/winning_match.gif)
+
+Note: examining GIFs from later generations, I realized something very interesting: my NEAT agents were gaming me! More precisely, I realized that my agents became very good at keeping the ball in play, but they were not trying to win. One reason for this is that I am not running full games in my evolutionary loop, but instead I am running games of a fixed time interval. This benefitted agents which did not lose any points. Perhaps this suggests that the complexity of keeping the ball in play is lower than the complexity of actively trying to score points.
+
+### Backprop NEAT
+
+![Decision boundaries and evolved topologies](docs/bpneat_four_tasks.png)
+
+In the figure above, notice how the activation functions that survive are the ones that match the geometry of the task. Also, the complexity of the task is directly proportional to the number of hidden nodes.
+
+![Fitness against complexity on the spiral task](docs/spiral_complexification.png)
 
 ---
 
@@ -208,25 +147,20 @@ python train_classification.py --set BP_STEPS=300 --set LEARN_RATE=0.2
 python train_slimevolley.py --set PROB_ADD_NODE=0.25 --set COMPAT_THRESHOLD=0.8
 ```
 
-`--set` validates names against the config module, so a typo fails immediately
-instead of being silently ignored. The common knobs also have short flags:
-`--gens`, `--pop`, `--episodes`, `--points`, `--seed`.
+Some of the common parameters: `--gens`, `--pop`, `--episodes`, `--points`, `--seed`.
 
-The parameters worth reaching for first:
+Description of the main parameters:
 
 | Name | Effect |
 | --- | --- |
-| `MAX_NODES`, `MAX_CONNS` | genome capacity — the ceiling on how complex a network can get. Raising them costs memory and compile time on *every* genome, since the arrays are fixed-size. |
-| `PROB_ADD_NODE`, `PROB_ADD_CONN` | how fast topologies complexify |
-| `COMPAT_THRESHOLD` | lower ⇒ more, smaller species. The single most sensitive parameter here: it decides how much protection a new structure gets. |
-| `COMPLEXITY_PENALTY` | fitness cost per active connection, annealed to zero over the run for Slime Volleyball |
-| `N_ELITES` | genomes copied unchanged each generation. Must be smaller than `POP_SIZE` — if you shrink the population for a quick test, shrink this too. |
-| `BP_STEPS`, `LEARN_RATE` | gradient budget per genome per generation (backprop NEAT only) |
+| `MAX_NODES`, `MAX_CONNS` | Genome capacity (maximum number of nodes and connections), i.e. the ceiling on how complex a network can get. Raising them costs memory and compile time on every genome, since the arrays are fixed-size. |
+| `PROB_ADD_NODE`, `PROB_ADD_CONN` | How fast topologies complexify |
+| `COMPAT_THRESHOLD` | Lower leads to more, smaller species. It decides how much protection a new structure gets. |
+| `COMPLEXITY_PENALTY` | Fitness cost per active connection, annealed to zero over the run for Slime Volleyball |
+| `N_ELITES` | Genomes copied unchanged each generation. Must be smaller than `POP_SIZE`. |
+| `BP_STEPS`, `LEARN_RATE` | Gradient budget per genome per generation (for backprop NEAT only) |
 
-Ablations are available as flags on both scripts: `--no-speciation`,
-`--no-crossover`, and `--no-structural` (fix the topology, evolve weights
-only). Turning speciation off is the informative one — new structures stop
-being protected and the population collapses onto whatever works immediately.
+Also available: `--no-speciation`, `--no-crossover`, and `--no-structural` (fix the topology, evolve weights only). Turning speciation off makes new structures stop being protected, so the population collapses onto whatever works immediately.
 
 ---
 
@@ -235,32 +169,23 @@ being protected and the population collapses onto whatever works immediately.
 ```
 neat/
   config.py       every hyperparameter, plus the two presets
-  genome.py       the Ind genome, activations, forward pass, initialisation, I/O
+  genome.py       the Ind genome, activations, forward pass, initialisation
   mutation.py     weight perturbation, add-connection, add-node, crossover
   speciation.py   compatibility distance, species assignment, fitness sharing
   evolution.py    the generation loop, shared by both experiments
   viz.py          topology figures and training curves
 tasks/
-  slimevolley.py      policy, batched evaluation, GIF rendering, match scoring
-  classification.py   datasets, gradient training, decision-boundary plots
+  slimevolley.py      
+  classification.py   
 train_slimevolley.py
 train_classification.py
 ```
 
-The two experiments share one `evolve()`. They differ only in how a genome is
-scored, which is passed in as a `fitness_fn` callback:
+The two experiments share one `evolve()` function. They differ only in how a genome is scored, which is passed in as a `fitness_fn`:
 
 ```python
 def fitness_fn(pop, pop_size, gen, key) -> (fitness, pop)
 ```
-
-Returning the population as well as the scores is what lets backprop NEAT
-write trained weights back into the genomes — a Lamarckian step, so what
-gradient descent learns is inherited rather than rediscovered every
-generation. The Slime Volleyball version returns the population untouched.
-
-Adding a third task means writing one such function; none of the selection
-machinery needs to change.
 
 ---
 
@@ -309,7 +234,7 @@ substantially faster, since the population evaluates in parallel.
 | --- | --- |
 | `train_classification.py` (defaults: 4 datasets × 40 gens × pop 30) | ~40 min |
 | `train_classification.py --gens 10 --datasets xor` | ~2 min |
-| `train_slimevolley.py` (defaults: 3000 gens × pop 100 × 1000 steps) | hours — this is an overnight run |
+| `train_slimevolley.py` (defaults: 3000 gens × pop 100 × 1000 steps) | a few hours  |
 | `train_slimevolley.py --gens 20 --pop 20 --episodes 1 --set MAX_STEPS=300` | ~5 min |
 
 The first generation of either script includes JAX compilation, so it is
