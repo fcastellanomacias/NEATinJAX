@@ -1,0 +1,13 @@
+jax>=0.4.20
+jaxlib>=0.4.20
+numpy>=1.24
+matplotlib>=3.7
+networkx>=3.0
+pillow>=9.0
+
+# Only needed for the Slime Volleyball experiment; the classification
+# experiment runs without either of these.
+evojax>=0.2.16
+# EvoJAX's slimevolley module imports cv2 at module level for rendering, but
+# does not declare it as a dependency -- so it has to be installed explicitly.
+opencv-python>=4.5
