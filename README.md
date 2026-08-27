@@ -11,10 +11,9 @@ Everything here is written directly on top of `jax` and `numpy`: the genome enco
 
 ## What is NEAT?
 
-NEAT (NeuroEvolution of Augmenting Topologies) is a genetic algorithm used to evolve both the weights and the topology of neural networks. It was developed by Kenneth Stanley and Risto Miikkulainen in 2002.
+NEAT is a genetic algorithm used to evolve both the weights and the topology of neural networks. It was developed by Kenneth Stanley and Risto Miikkulainen in 2002.
 
 A NEAT agent comprises a population of individuals (or genomes); each individual is a feed-forward neural network, consisting of nodes and weighted connections between nodes. One generation in NEAT looks as follows:
-
 1. Express and evaluate all the individuals in a NEAT agent based on the inputs (a collection of real numbers); then record the outputs (another collection of real numbers), which determine a fitness score based on a fitness function adapted to the task at hand.
 2. Speciate. Group individuals by compatibility distance based on the similarity of their genomes, which protects diversity and innovation.
 3. Select and reproduce. Within species, fitter individuals produce offspring via crossover
