@@ -6,15 +6,9 @@ Each training script therefore calls :func:`use` at start-up, which copies the
 chosen preset into this module's globals.
 
 Every other module reads these values *through the module*::
-
     from . import config as cfg
     ...  cfg.MAX_NODES  ...
 
-rather than ``from .config import MAX_NODES``, so an override made by :func:`use`
-(or an edit made here) is visible everywhere.
-
-To tune the project, edit the ``PRESETS`` entries below, or pass keyword
-overrides on the command line of the training scripts.
 """
 
 # --------------------------------------------------------------- capacity ---

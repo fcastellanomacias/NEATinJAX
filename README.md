@@ -47,6 +47,10 @@ Two consequences follow from this choice:
 - **The forward pass is a fixed-length scan.** There is no topological sort. The full activation vector is updated `MAX_NODES` times; since mutation only ever adds edges pointing from a shallower node to a deeper one, the graph is acyclic and has certainly settled by then.
 - **The forward pass is differentiable.** Which is what makes backprop NEAT almost free using `jax.grad`.
 
+Backprop NEAT splits the labor: NEAT for figuring out new architectures, while backpropagation for determining weights. Gradient descent is better at fitting weights than random mutations when there is a differentiable objective. On the other hand, architecture search has no gradient.
+
+See [implementation-notes.md](implementation-notes.md) for a description of the different parts of my implementation of NEAT.
+
 ---
 
 ## Install
@@ -110,13 +114,17 @@ At the end the script re-scores every checkpoint on the same fresh episodes and 
 
 ### Slime Volleyball
 
-In the GIF, my NEAT evolved agent is the yellow one on the right; the internal AI from EvoJAX is the blue one on the left.
-
-![GIF of winning individual](docs/topology.png)
+A winning genome:
 
 ![Topology of winning genome](docs/winning_match.gif)
 
-Note: examining GIFs from later generations, I realized something very interesting: my NEAT agents were gaming me! More precisely, I realized that my agents became very good at keeping the ball in play, but they were not trying to win. One reason for this is that I am not running full games in my evolutionary loop, but instead I am running games of a fixed time interval. This benefitted agents which did not lose any points. Perhaps this suggests that the complexity of keeping the ball in play is lower than the complexity of actively trying to score points.
+![GIF of winning individual](docs/topology.png)
+
+![Generation vs rewards](docs/gen_vs_rew.png)
+
+In the GIF, my NEAT evolved agent is the yellow one on the right; the internal AI from EvoJAX is the blue one on the left.
+
+Examining GIFs from later generations, I realized that my NEAT agents were gaming me! More precisely, I realized that my agents became very good at keeping the ball in play, but they were not trying to win. One reason for this is that I am not running full games in my evolutionary loop, but instead I am running games of a fixed time interval. This benefitted agents which did not lose any points. Perhaps this suggests that the complexity of keeping the ball in play is lower than the complexity of actively trying to score points.
 
 ### Backprop NEAT
 
@@ -186,42 +194,6 @@ The two experiments share one `evolve()` function. They differ only in how a gen
 ```python
 def fitness_fn(pop, pop_size, gen, key) -> (fitness, pop)
 ```
-
----
-
-## Implementation notes
-
-**Genome.** Seven fixed-length arrays: `node_type`, `node_act` over node slots,
-and `conn_in`, `conn_out`, `conn_w`, `conn_on`, `conn_innov` over connection
-slots. The slot layout is fixed for a whole run — inputs, then the bias node,
-then outputs, then free space — so a node index means the same thing in every
-genome.
-
-**Innovation numbers.** Structural changes are recorded in a record shared
-across the population, so the same mutation arising independently in two
-genomes gets the same number. That is what makes genes comparable between
-genomes, which crossover and the compatibility distance both depend on.
-
-**Add-node is near-neutral by design.** Splitting `src --w--> dst` into
-`src --1--> new --w--> dst` routes the original weight through the second half,
-so the new network computes nearly what the old one did. Without this a fresh
-node arrives with random weights, immediately loses, and never gets refined.
-
-**Crossover keeps the fitter parent's topology** and, for genes both parents
-share, takes the other parent's weight with probability `PROB_INHERIT_B`.
-Reconciling two different node layouts inside fixed-size arrays is not worth
-the complexity for the gain.
-
-**Speciation** is what makes complexification survivable. A new hidden node
-almost always hurts before it helps, so genomes compete mainly against
-relatives, and fitness sharing stops any one species from taking over.
-
-**Backprop NEAT** excludes the step function from the activations a new hidden
-node may take, since its gradient is zero wherever it is defined. Weights are
-clipped during descent — some evolved topologies diverge otherwise — and a
-genome whose training produced a non-finite loss is mapped to a very bad
-fitness rather than a `NaN`, so one blown-up architecture cannot poison the
-whole generation.
 
 ---
 
