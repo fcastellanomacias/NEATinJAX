@@ -1,19 +1,5 @@
 #!/usr/bin/env python3
-"""Evolve architectures with backprop NEAT on 2-D classification tasks.
-
-    python train_classification.py                          # all four datasets
-    python train_classification.py --datasets xor spiral
-    python train_classification.py --gens 80 --pop 50
-    python train_classification.py --set BP_STEPS=300 --set LEARN_RATE=0.2
-
-Outputs, all written to --out:
-    summary.png                  every dataset: boundary above, topology below
-    boundary_<dataset>.png       decision boundary on its own
-    topology_<dataset>.png       the evolved network, hidden nodes labelled
-                                 with their activation function
-    fitness_<dataset>.png        fitness and mean hidden-node count per generation
-    best_<dataset>.npz           the winning genome, reloadable
-"""
+"""Evolve architectures with backprop NEAT on 2-D classification tasks."""
 
 import argparse
 import os
@@ -29,14 +15,25 @@ from neat import config as cfg
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--gens", type=int, default=None, help="generations (default: config N_GENS)")
-    p.add_argument("--pop", type=int, default=None, help="population size (default: config POP_SIZE)")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--gens", type=int, default=None, help="generations (default: config N_GENS)"
+    )
+    p.add_argument(
+        "--pop",
+        type=int,
+        default=None,
+        help="population size (default: config POP_SIZE)",
+    )
     p.add_argument("--points", type=int, default=None, help="samples per dataset")
     p.add_argument("--datasets", nargs="+", default=None, choices=list(cfg.DATASETS))
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", default="outputs/classification")
-    p.add_argument("--quiet", action="store_true", help="suppress the per-generation log")
+    p.add_argument(
+        "--quiet", action="store_true", help="suppress the per-generation log"
+    )
     p.add_argument("--no-speciation", action="store_true")
     p.add_argument("--no-crossover", action="store_true")
     p.add_argument(
@@ -50,7 +47,6 @@ def parse_args():
 
 
 def parse_overrides(pairs):
-    """Turn ``--set NAME=VALUE`` strings into typed keyword overrides."""
     out = {}
     for pair in pairs:
         if "=" not in pair:
@@ -65,7 +61,6 @@ def parse_overrides(pairs):
 
 
 def report_activation_usage(totals, act_names):
-    """Which activation functions evolution actually kept, pooled over datasets."""
     n = int(totals.sum())
     if not n:
         return
@@ -76,7 +71,9 @@ def report_activation_usage(totals, act_names):
     for a in np.argsort(-totals):
         if totals[a]:
             bar = "#" * int(30 * totals[a] / totals.max())
-            print(f"   {act_names[a]:>8s} {totals[a]:3d}   {100 * totals[a] / n:5.1f}%   {bar}")
+            print(
+                f"   {act_names[a]:>8s} {totals[a]:3d}   {100 * totals[a] / n:5.1f}%   {bar}"
+            )
     never = [act_names[a] for a in range(len(act_names)) if totals[a] == 0]
     if never:
         print(f"   never used: {', '.join(never)}")

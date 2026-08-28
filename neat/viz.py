@@ -1,8 +1,4 @@
-"""Figures: network topologies and training curves.
-
-Everything here takes an optional ``ax`` so the same drawing code serves both
-standalone figures and the multi-panel summary grids.
-"""
+"""Figures: network topologies and training curves."""
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -38,14 +34,6 @@ def draw_genome(
     input_labels=None,
     figsize=(9, 5),
 ):
-    """Draw one genome as a layered graph: inputs on the left, outputs right.
-
-    Horizontal position is the node's depth, so the drawing reflects the actual
-    order of computation. Edge width tracks weight magnitude and red edges are
-    negative weights. With ``label_activations`` the hidden nodes are labelled
-    with their activation function instead of their slot index -- readable for
-    the small classification networks, cluttered for the big ones.
-    """
     node_type = np.asarray(ind.node_type)
     node_act = np.asarray(ind.node_act)
     conn_in = np.asarray(ind.conn_in)
@@ -81,7 +69,9 @@ def draw_genome(
             kind = int(node_type[i])
             if kind == INPUT:
                 labels[i] = (
-                    input_labels[i] if input_labels and i < len(input_labels) else f"in{i}"
+                    input_labels[i]
+                    if input_labels and i < len(input_labels)
+                    else f"in{i}"
                 )
             elif kind == BIAS:
                 labels[i] = "b"
@@ -125,7 +115,6 @@ def draw_genome(
 
 
 def plot_fitness(history, title="NEAT", ylabel="best episode reward", save_path=None):
-    """Best-of-population fitness against generation."""
     fig, ax = plt.subplots(figsize=(8, 4.4))
     ax.plot(history, lw=1.6, color="#2c5f8a")
     ax.axhline(0, ls="--", lw=1, c="gray")  # break-even against the built-in AI
@@ -143,12 +132,6 @@ def plot_fitness(history, title="NEAT", ylabel="best episode reward", save_path=
 def plot_fitness_and_complexity(
     history, hidden_hist, title="Backprop NEAT", save_path=None
 ):
-    """Fitness and mean hidden-node count on twin axes.
-
-    Putting them together shows the thing worth seeing: fitness sits on a
-    plateau -- the best a linear model can do -- until the population grows its
-    first hidden node, and the jump follows the complexification.
-    """
     h = np.asarray(history, dtype=float)
     ah = np.asarray(hidden_hist, dtype=float)
     gens = np.arange(len(h))

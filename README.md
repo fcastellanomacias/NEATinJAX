@@ -199,34 +199,26 @@ def fitness_fn(pop, pop_size, gen, key) -> (fitness, pop)
 
 ## Runtime
 
-Measured on a **single CPU core**; a multi-core machine or a GPU is
-substantially faster, since the population evaluates in parallel.
+Measured on a single CPU; using GPU is substantially faster, since the population evaluates in parallel.
 
-| Run | Rough cost |
+| Run | Estimated time |
 | --- | --- |
 | `train_classification.py` (defaults: 4 datasets × 40 gens × pop 30) | ~40 min |
 | `train_classification.py --gens 10 --datasets xor` | ~2 min |
 | `train_slimevolley.py` (defaults: 3000 gens × pop 100 × 1000 steps) | a few hours  |
 | `train_slimevolley.py --gens 20 --pop 20 --episodes 1 --set MAX_STEPS=300` | ~5 min |
 
-The first generation of either script includes JAX compilation, so it is
-noticeably slower than the rest. Slime Volleyball is the expensive one: cost
-scales with `POP_SIZE × N_EPISODES × MAX_STEPS`, and reducing `N_EPISODES`
-makes fitness noisier rather than making the run cheaper for free.
+The first generation of either script includes JAX compilation, so it is slower than the rest. Slime Volleyball is the more expensive task: cost scales with `POP_SIZE × N_EPISODES × MAX_STEPS`, and reducing `N_EPISODES` makes fitness noisier rather than making the run cheaper for free.
 
 ---
 
 ## References
 
 - Stanley & Miikkulainen, *Evolving Neural Networks through Augmenting
-  Topologies*, Evolutionary Computation 10(2), 2002 — the original NEAT paper.
-- David Ha, *Backprop NEAT* (2017) — evolving architectures while training
+  Topologies*, Evolutionary Computation 10(2), 2002: the original NEAT paper.
+- David Ha, *Backprop NEAT* (2017): evolving architectures while training
   weights by gradient descent, on the TensorFlow Playground datasets that
   `make_dataset` reproduces here.
-- [EvoJAX](https://github.com/google/evojax) — supplies the vectorised
+- [EvoJAX](https://github.com/google/evojax): supplies the vectorised
   Slime Volleyball environment, itself derived from David Ha's
   `slimevolleygym`.
-
-## License
-
-MIT

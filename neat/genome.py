@@ -1,11 +1,4 @@
-"""Genome representation and the forward pass.
-
-A genome is a fixed-size bundle of arrays, which is what lets a whole
-population be stacked into a single pytree and evaluated under ``jax.vmap``.
-Unused capacity is carried around as inactive slots rather than being
-allocated on demand, so every genome in the population has identical shapes no
-matter how much structure it has grown.
-"""
+"""Genome representation and the forward pass."""
 
 from typing import NamedTuple
 
@@ -149,7 +142,7 @@ def forwardpass(ind, inputs):
     """Evaluate one genome. Returns the settled activation of every node slot.
 
     ``inputs`` is a vector of length ``cfg.MAX_NODES``; only its first few
-    entries -- as many as the genome has input nodes -- are read.
+    entries corresponding to input nodes are read.
 
     The network is not layered explicitly. Instead the whole activation vector
     is updated ``MAX_NODES`` times in a scan: because mutation only ever adds
@@ -186,7 +179,7 @@ def forwardpass(ind, inputs):
 
 
 # ---------------------------------------------------------------------------
-# Construction
+# Initialization
 # ---------------------------------------------------------------------------
 
 
@@ -257,7 +250,7 @@ def stack_inds(inds):
 
 
 # ---------------------------------------------------------------------------
-# Small host-side helpers
+# Helper functions
 # ---------------------------------------------------------------------------
 
 
@@ -287,8 +280,7 @@ def node_layers(ind):
     """Depth of each node: inputs and bias at 0, others at 1 + max incoming depth.
 
     Outputs are then pushed to the deepest layer so they always draw on the
-    right-hand side. Unused slots get -1. Used both for laying out topology
-    figures and for deciding which new connections point forward.
+    right-hand side. Unused slots get -1.
     """
     node_type = np.asarray(ind.node_type)
     conn_on = np.asarray(ind.conn_on, dtype=bool)
@@ -313,7 +305,7 @@ def node_layers(ind):
 
 
 # ---------------------------------------------------------------------------
-# Persistence
+# Saving and loading
 # ---------------------------------------------------------------------------
 
 
@@ -323,6 +315,6 @@ def save_genome(ind, path):
 
 
 def load_genome(path):
-    """Read back a genome written by :func:`save_genome`."""
+    """Read back a genome written by `save_genome`."""
     data = np.load(path)
     return Ind(**{f: jnp.asarray(data[f]) for f in Ind._fields})

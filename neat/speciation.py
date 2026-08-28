@@ -1,10 +1,4 @@
-"""Speciation and fitness sharing.
-
-A structural mutation almost always hurts before it helps: a fresh hidden node
-arrives with untuned weights and loses to the streamlined genomes around it.
-Speciation buys it time by making genomes compete mainly against relatives, and
-fitness sharing stops any one species from taking over the population.
-"""
+"""Speciation and fitness sharing."""
 
 import numpy as np
 
@@ -13,12 +7,7 @@ from .genome import get_ind
 
 
 def compat_distance(ind_a, ind_b):
-    """Compatibility distance between two genomes.
-
-    Two terms, as in the original NEAT: the fraction of genes present in only
-    one of the two (structural difference), and the mean absolute weight
-    difference over the genes they share (parametric difference).
-    """
+    """Compatibility distance between two genomes."""
     a_innov = np.asarray(ind_a.conn_innov)
     a_on = np.asarray(ind_a.conn_on, dtype=bool)
     b_innov = np.asarray(ind_b.conn_innov)
@@ -33,9 +22,9 @@ def compat_distance(ind_a, ind_b):
     n_unmatched = len(a_map.keys() ^ b_map.keys())
 
     if matching:
-        mean_w_diff = sum(
-            abs(a_w[a_map[i]] - b_w[b_map[i]]) for i in matching
-        ) / len(matching)
+        mean_w_diff = sum(abs(a_w[a_map[i]] - b_w[b_map[i]]) for i in matching) / len(
+            matching
+        )
     else:
         mean_w_diff = 0.0
 
@@ -45,11 +34,6 @@ def compat_distance(ind_a, ind_b):
 
 def speciate(pop, pop_size, reps):
     """Assign every individual to a species.
-
-    Each genome joins the first species whose representative it is closer to
-    than ``COMPAT_THRESHOLD``, and founds a new species otherwise. Carrying the
-    representatives over from the previous generation keeps species identities
-    stable across time.
 
     Args:
         pop: stacked population.

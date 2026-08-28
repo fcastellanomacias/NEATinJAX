@@ -1,15 +1,4 @@
-"""Every tunable hyperparameter in the project lives here.
-
-Genome capacity (``MAX_NODES``, ``MAX_CONNS``) fixes the shape of the arrays a
-genome is made of, so it has to be settled before the first genome is built.
-Each training script therefore calls :func:`use` at start-up, which copies the
-chosen preset into this module's globals.
-
-Every other module reads these values *through the module*::
-    from . import config as cfg
-    ...  cfg.MAX_NODES  ...
-
-"""
+"""Every hyperparameter in the project lives here."""
 
 # --------------------------------------------------------------- capacity ---
 MAX_NODES = 40  # node slots per genome: inputs + bias + outputs + hidden
@@ -39,7 +28,7 @@ CULL_RATIO = 0.5  # fraction of each species discarded before breeding
 
 # --------------------------------------------------------------- pressure ---
 COMPLEXITY_PENALTY = 0.05  # fitness cost per active connection
-ANNEAL_PENALTY = True  # linearly decay that cost to zero over the run
+ANNEAL_PENALTY = True  # linearly decay that goes to zero over the run
 
 # ------------------------------------------------- Slime Volleyball task ----
 N_EPISODES = 3  # episodes averaged per genome per generation
@@ -62,8 +51,7 @@ DATASETS = ("gauss", "xor", "circle", "spiral")
 # Presets. Values not listed keep the defaults above.
 # ------------------------------------------------------------------------ ---
 PRESETS = {
-    # Neuroevolution against the built-in Slime Volleyball AI. Big genomes,
-    # big populations, long runs, and real pressure against bloat.
+    # NEAT against the built-in Slime Volleyball AI
     "slimevolley": dict(
         MAX_NODES=40,
         MAX_CONNS=120,
@@ -76,9 +64,7 @@ PRESETS = {
         SNAPSHOT_EVERY=200,
         GIF_EVERY=200,
     ),
-    # Backprop NEAT on 2-D classification. Evolution only searches topology;
-    # gradient descent fits the weights, so far fewer generations are needed
-    # and the complexity pressure is applied inside the fitness instead.
+    # Backprop NEAT on 2-D classification
     "classification": dict(
         MAX_NODES=20,
         MAX_CONNS=60,
@@ -94,11 +80,7 @@ PRESETS = {
 
 
 def use(preset, **overrides):
-    """Activate a preset, then apply any keyword overrides.
-
-    Call this once, before any genome is created. Unknown names raise, so a
-    typo in a command-line override fails loudly instead of being ignored.
-    """
+    """Activate a preset, then apply any keyword overrides."""
     if preset not in PRESETS:
         raise ValueError(f"unknown preset {preset!r}; choose from {sorted(PRESETS)}")
 
@@ -107,7 +89,11 @@ def use(preset, **overrides):
 
     g = globals()
     for name, value in settings.items():
-        if name not in g or name.startswith("_") or name in ("PRESETS", "use", "summary"):
+        if (
+            name not in g
+            or name.startswith("_")
+            or name in ("PRESETS", "use", "summary")
+        ):
             raise ValueError(f"unknown hyperparameter {name!r}")
         g[name] = value
 
@@ -118,10 +104,6 @@ def use(preset, **overrides):
 def summary():
     """The active settings, as a printable multi-line string."""
     g = globals()
-    names = [
-        n
-        for n in g
-        if n.isupper() and not n.startswith("_") and n != "PRESETS"
-    ]
+    names = [n for n in g if n.isupper() and not n.startswith("_") and n != "PRESETS"]
     width = max(len(n) for n in names)
     return "\n".join(f"  {n:<{width}} = {g[n]}" for n in sorted(names))

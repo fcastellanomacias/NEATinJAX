@@ -2,8 +2,8 @@
 
 Both experiments in this repository use the same loop; they differ only in how
 a genome is scored. That difference is passed in as ``fitness_fn``, so the
-selection machinery -- speciation, fitness sharing, offspring allocation,
-elitism, mutation -- is written once.
+selection machinery (speciation, fitness sharing, offspring allocation,
+elitism, mutation) is written once.
 """
 
 from dataclasses import dataclass, field
@@ -51,7 +51,7 @@ def evolve(
 
     Args:
         fitness_fn: ``f(pop, pop_size, gen, key) -> (raw_fitness, pop)``.
-            Returns one score per genome, plus the population -- which it may
+            Returns one score per genome, plus the population, which it may
             return modified, as backprop NEAT does when it writes trained
             weights back into the genomes.
         key: JAX PRNG key, used for genome initialisation and folded per
@@ -87,8 +87,7 @@ def evolve(
         raw_fitness = np.asarray(raw_fitness, dtype=np.float64)
         result.history.append(float(raw_fitness.max()))
 
-        # Pressure against bloat, optionally annealed to zero: strong while the
-        # topology is still growing, absent once reward differences get fine.
+        # Pressure against bloat, optionally annealed to zero
         n_conns = n_connections(pop)
         penalty = cfg.COMPLEXITY_PENALTY
         if cfg.ANNEAL_PENALTY and n_gens > 0:
@@ -113,8 +112,7 @@ def evolve(
         while alloc.sum() < pop_size - cfg.N_ELITES:  # hand out the remainder
             alloc[np.argmax(sp_score)] += 1
 
-        # Elites and parent ranking use raw fitness, never the shared value:
-        # sharing decides how many offspring a species gets, not who is best.
+        # Elites and parent ranking use raw fitness, never the shared value
         elite_idx = np.argsort(raw_fitness)[-cfg.N_ELITES :][::-1]
         next_inds = [get_ind(pop, int(i)) for i in elite_idx]
 
@@ -125,7 +123,11 @@ def evolve(
             pool = members[:n_keep]
 
             for _ in range(alloc[s]):
-                if use_crossover and rng.random() < cfg.PROB_CROSSOVER and len(pool) > 1:
+                if (
+                    use_crossover
+                    and rng.random() < cfg.PROB_CROSSOVER
+                    and len(pool) > 1
+                ):
                     p1, p2 = rng.choice(pool, size=2, replace=True)
                     a, b = (p1, p2) if raw_fitness[p1] >= raw_fitness[p2] else (p2, p1)
                     child = crossover(get_ind(pop, int(a)), get_ind(pop, int(b)), rng)

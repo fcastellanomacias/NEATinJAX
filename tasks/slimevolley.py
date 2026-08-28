@@ -1,9 +1,4 @@
-"""Slime Volleyball: evaluating genomes against the built-in AI.
-
-The environment comes from EvoJAX and is fully vectorised, so an entire
-population plays simultaneously inside one ``jax.lax.scan`` -- the population
-axis of the stacked genome pytree lines up with the environment's batch axis.
-"""
+"""Slime Volleyball: evaluating genomes against the built-in AI."""
 
 import functools
 import glob
@@ -22,11 +17,6 @@ _TASKS = {}
 
 
 def get_task(test=False):
-    """The shared environment instance, built on first use.
-
-    Creating it lazily matters: episode length is a hyperparameter, so the task
-    must not be constructed at import time, before the config preset is chosen.
-    """
     max_steps = cfg.TEST_MAX_STEPS if test else cfg.MAX_STEPS
     cache_key = (test, max_steps)
     if cache_key not in _TASKS:
@@ -35,12 +25,7 @@ def get_task(test=False):
 
 
 def policy_action(ind, obs):
-    """One agent's move: a 12-dim observation to 3 binary actions.
-
-    The observation is padded to the genome's node capacity, the network is
-    run, and the three output slots are thresholded at zero -- the action
-    encoding Slime Volleyball expects.
-    """
+    """One agent's move: a 12-dim observation to 3 binary actions."""
     out_slots = jnp.arange(N_IN + 1, N_IN + 1 + N_OUT)  # bias sits at slot N_IN
     inp = jnp.zeros(cfg.MAX_NODES, jnp.float32).at[:N_IN].set(obs)
     return (forwardpass(ind, inp)[out_slots] > 0.0).astype(jnp.float32)
@@ -48,12 +33,7 @@ def policy_action(ind, obs):
 
 @functools.partial(jax.jit, static_argnums=(2, 3))
 def eval_pop_jit(pop, key, pop_size, n_episodes):
-    """Mean episode reward per genome over ``n_episodes`` games.
-
-    Within an episode every genome faces the *same* initial conditions, so
-    score differences reflect the policy rather than the luck of the draw;
-    averaging over several episodes then cancels what luck remains.
-    """
+    """Mean episode reward per genome over ``n_episodes`` games."""
     task = get_task(test=False)
 
     def one_episode(ep_key):
@@ -76,7 +56,7 @@ def eval_pop_jit(pop, key, pop_size, n_episodes):
 
 
 def make_fitness_fn(n_episodes=None):
-    """Build the ``fitness_fn`` that :func:`neat.evolve` expects."""
+    """Build the ``fitness_fn``"""
     n_episodes = cfg.N_EPISODES if n_episodes is None else n_episodes
 
     def fitness_fn(pop, pop_size, gen, key):
@@ -157,19 +137,13 @@ def make_gif(ind, path="agent.gif", seed=0, frame_skip=4, max_frames=400):
             break
     if not frames:
         return None
-    frames[0].save(
-        path, save_all=True, append_images=frames[1:], duration=33, loop=0
-    )
+    frames[0].save(path, save_all=True, append_images=frames[1:], duration=33, loop=0)
     print(f"  saved {path}  ({len(frames)} frames)")
     return path
 
 
 def evaluate_all_checkpoints(pattern="best_gen*.npz", n_episodes=20, seed=12345):
-    """Re-score every saved checkpoint on the same episodes and report the best.
-
-    Worth doing: the last generation is not reliably the strongest one, because
-    a champion selected on three noisy episodes can be a lucky draw.
-    """
+    """Re-score every saved checkpoint on the same episodes and report the best."""
     results = []
     for path in sorted(glob.glob(pattern)):
         r = report_champion(load_genome(path), n_episodes, seed, label=path)

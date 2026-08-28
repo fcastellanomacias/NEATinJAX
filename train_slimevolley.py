@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""Evolve a NEAT agent to play Slime Volleyball against the built-in AI.
-
-    python train_slimevolley.py                     # full run, config defaults
-    python train_slimevolley.py --gens 200 --pop 50  # something quicker
-    python train_slimevolley.py --set MUT_SIGMA=0.5 --set PROB_ADD_NODE=0.2
-
-Outputs, all written to --out:
-    fitness.png              best episode reward against generation
-    topology_gen####.png     the champion's network, every SNAPSHOT_EVERY gens
-    best_gen####.gif         the champion playing a match
-    best_gen####.npz         the champion's genome, reloadable
-"""
+"""Evolve a NEAT agent to play Slime Volleyball against the built-in AI."""
 
 import argparse
 import os
@@ -26,16 +15,40 @@ from neat import config as cfg
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--gens", type=int, default=None, help="generations (default: config N_GENS)")
-    p.add_argument("--pop", type=int, default=None, help="population size (default: config POP_SIZE)")
-    p.add_argument("--episodes", type=int, default=None, help="episodes averaged per genome")
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    p.add_argument(
+        "--gens", type=int, default=None, help="generations (default: config N_GENS)"
+    )
+    p.add_argument(
+        "--pop",
+        type=int,
+        default=None,
+        help="population size (default: config POP_SIZE)",
+    )
+    p.add_argument(
+        "--episodes", type=int, default=None, help="episodes averaged per genome"
+    )
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--out", default="outputs/slimevolley", help="directory for figures and checkpoints")
-    p.add_argument("--eval-episodes", type=int, default=20, help="episodes used to score the final champion")
+    p.add_argument(
+        "--out",
+        default="outputs/slimevolley",
+        help="directory for figures and checkpoints",
+    )
+    p.add_argument(
+        "--eval-episodes",
+        type=int,
+        default=20,
+        help="episodes used to score the final champion",
+    )
     p.add_argument("--no-speciation", action="store_true")
     p.add_argument("--no-crossover", action="store_true")
-    p.add_argument("--no-structural", action="store_true", help="fix the topology; evolve weights only")
+    p.add_argument(
+        "--no-structural",
+        action="store_true",
+        help="fix the topology; evolve weights only",
+    )
     p.add_argument(
         "--set",
         action="append",
@@ -47,7 +60,6 @@ def parse_args():
 
 
 def parse_overrides(pairs):
-    """Turn ``--set NAME=VALUE`` strings into typed keyword overrides."""
     out = {}
     for pair in pairs:
         if "=" not in pair:

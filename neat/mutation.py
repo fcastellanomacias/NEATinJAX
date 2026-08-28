@@ -1,10 +1,4 @@
-"""Mutation and crossover.
-
-These operators run on the host in NumPy rather than under ``jit``. They
-change which slots are occupied, which is exactly the kind of data-dependent
-control flow JAX cannot trace, and they run once per offspring per generation
--- negligible next to evaluating a genome for a thousand simulation steps.
-"""
+"""Mutation and crossover."""
 
 import jax.numpy as jnp
 import numpy as np
@@ -21,13 +15,6 @@ from .genome import (
 
 def get_innov(record, key, counter):
     """Look up, or mint, the innovation number for a structural change.
-
-    ``key`` identifies the change: ``(src, dst)`` for a new connection, or
-    ``("left"|"right", innov_of_split_connection)`` for the two halves of a
-    split. Sharing one record across the population is what makes innovation
-    numbers comparable between genomes, which is what crossover and the
-    compatibility distance rely on.
-
     Returns ``(innovation_number, new_counter)``.
     """
     if key in record:
@@ -47,10 +34,8 @@ def mut_weights(ind, rng):
 
 def mut_add_conn(ind, rng, innov_counter, innov_record):
     """Add one connection between two existing nodes.
-
     Only pairs that point from a shallower to a deeper node are eligible, which
-    keeps the network acyclic and so keeps the fixed-length scan in
-    :func:`~neat.genome.forwardpass` a valid evaluation order.
+    keeps the network acyclic.
 
     Returns ``(new_ind, new_counter)``, unchanged if there is no room or no
     legal pair left.
@@ -98,15 +83,10 @@ def mut_add_node(ind, rng, innov_counter, innov_record, act_choices=None):
     """Split an active connection by inserting a hidden node.
 
     ``src --w--> dst`` becomes ``src --1--> new --w--> dst`` with the original
-    connection disabled. Routing the old weight through the second half means
-    the new network computes almost what the old one did, so the mutation is
-    close to neutral at birth and has a chance to be refined rather than being
-    selected away immediately.
+    connection disabled.
 
-    ``act_choices`` restricts which activations the new node may take; backprop
-    NEAT passes the differentiable subset. Returns ``(new_ind, new_counter)``,
-    unchanged if there is no free node slot or fewer than two free connection
-    slots.
+    Returns ``(new_ind, new_counter)``, unchanged if there is no free node slot
+    or fewer than two free connection slots.
     """
     node_type = np.asarray(ind.node_type).copy()
     node_act = np.asarray(ind.node_act).copy()
@@ -136,8 +116,12 @@ def mut_add_node(ind, rng, innov_counter, innov_record, act_choices=None):
     # Read the original endpoints before overwriting anything.
     src, dst, w = int(conn_in[split]), int(conn_out[split]), conn_w[split]
     split_innov = int(conn_innov[split])
-    innov_l, innov_counter = get_innov(innov_record, ("left", split_innov), innov_counter)
-    innov_r, innov_counter = get_innov(innov_record, ("right", split_innov), innov_counter)
+    innov_l, innov_counter = get_innov(
+        innov_record, ("left", split_innov), innov_counter
+    )
+    innov_r, innov_counter = get_innov(
+        innov_record, ("right", split_innov), innov_counter
+    )
 
     conn_on[split] = False
     for slot, (a, b, weight, innov) in zip(
@@ -166,9 +150,8 @@ def crossover(parent_a, parent_b, rng):
     """Combine two parents, ``parent_a`` being the fitter one.
 
     The child inherits A's topology outright and, for genes both parents share
-    -- identified by innovation number, not by slot -- takes B's weight with
-    probability ``PROB_INHERIT_B``. Keeping the fitter topology avoids having
-    to reconcile two different node layouts inside fixed-size arrays.
+    (identified by innovation number) takes B's weight with probability
+    ``PROB_INHERIT_B``.
     """
     a_innov = np.asarray(parent_a.conn_innov)
     a_on = np.asarray(parent_a.conn_on, dtype=bool)
