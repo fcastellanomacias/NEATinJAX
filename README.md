@@ -216,9 +216,8 @@ The first generation of either script includes JAX compilation, so it is slower 
 
 - Stanley & Miikkulainen, *Evolving Neural Networks through Augmenting
   Topologies*, Evolutionary Computation 10(2), 2002: the original NEAT paper.
-- David Ha, *Backprop NEAT* (2017): evolving architectures while training
+- [backprop-neat-js](https://github.com/hardmaru/backprop-neat-js): evolving architectures while training
   weights by gradient descent, on the TensorFlow Playground datasets that
   `make_dataset` reproduces here.
 - [EvoJAX](https://github.com/google/evojax): supplies the vectorised
-  Slime Volleyball environment, itself derived from David Ha's
-  `slimevolleygym`.
+  Slime Volleyball environment, itself derived from [slimevolleygym](https://github.com/hardmaru/slimevolleygym).
